@@ -30,18 +30,16 @@ const MEM=new Map();
 const LAUNCH_CFG={showDemoAccounts:false,enableAiAssistant:false,maxUploadBytes:5*1024*1024};
 // Storage: IndexedDB (primary) + localStorage (fallback)  -  no external CDN needed
 const IDB=(()=>{
-  let db=null,idbDisabled=false;
+  let db=null;
   const DB_NAME="seminarioDB",DB_VER=1,STORE="kv";
   function open(){
     return new Promise((res,rej)=>{
-      if(idbDisabled)return rej(new Error("IndexedDB disabled"));
       if(db)return res(db);
       if(typeof indexedDB==="undefined")return rej(new Error("IndexedDB unavailable"));
       let settled=false;
       const timer=setTimeout(()=>{
         if(settled)return;
         settled=true;
-        idbDisabled=true;
         rej(new Error("IndexedDB timeout"));
       },1500);
       const req=indexedDB.open(DB_NAME,DB_VER);
@@ -54,32 +52,29 @@ const IDB=(()=>{
         settled=true;
         clearTimeout(timer);
         db=e.target.result;
-        idbDisabled=false;
         res(db);
       };
       req.onerror=()=>{
         if(settled)return;
         settled=true;
         clearTimeout(timer);
-        idbDisabled=true;
         rej(req.error||new Error("IndexedDB error"));
       };
       req.onblocked=()=>{
         if(settled)return;
         settled=true;
         clearTimeout(timer);
-        idbDisabled=true;
         rej(new Error("IndexedDB blocked"));
       };
     });
   }
   return {
     async get(k){
-      try{const d=await open();return new Promise((res,rej)=>{let settled=false;const timer=setTimeout(()=>{if(settled)return;settled=true;idbDisabled=true;rej(new Error("IndexedDB get timeout"));},1500);const t=d.transaction(STORE,"readonly");const r=t.objectStore(STORE).get(k);r.onsuccess=()=>{if(settled)return;settled=true;clearTimeout(timer);res(r.result?r.result.v:undefined);};r.onerror=()=>{if(settled)return;settled=true;clearTimeout(timer);idbDisabled=true;rej(r.error||new Error("IndexedDB get error"));};});}
+      try{const d=await open();return new Promise((res,rej)=>{const t=d.transaction(STORE,"readonly");const r=t.objectStore(STORE).get(k);r.onsuccess=()=>res(r.result?r.result.v:undefined);r.onerror=()=>rej(r.error);});}
       catch(e){return localStorage.getItem("sdb_"+k)||undefined;}
     },
     async set(k,v){
-      try{const d=await open();return new Promise((res,rej)=>{let settled=false;const timer=setTimeout(()=>{if(settled)return;settled=true;idbDisabled=true;rej(new Error("IndexedDB set timeout"));},1500);const t=d.transaction(STORE,"readwrite");const r=t.objectStore(STORE).put({k,v});r.onsuccess=()=>{if(settled)return;settled=true;clearTimeout(timer);res(true);};r.onerror=()=>{if(settled)return;settled=true;clearTimeout(timer);idbDisabled=true;rej(r.error||new Error("IndexedDB set error"));};});}
+      try{const d=await open();return new Promise((res,rej)=>{const t=d.transaction(STORE,"readwrite");const r=t.objectStore(STORE).put({k,v});r.onsuccess=()=>res(true);r.onerror=()=>rej(r.error);});}
       catch(e){try{localStorage.setItem("sdb_"+k,v);}catch(le){console.warn("Storage full",le);}return true;}
     }
   };
@@ -528,7 +523,29 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
 }
 function AuthPage({onLogin}){
   const [mode,setMode]=useState("login");
-  const [email,setEmail]=useState("");const [pw,setPw]=useState("");const [name,setName]=useState("");const [pw2,setPw2]=useState("");const [role,setRole]=useState("student");const [step,setStep]=useState(1);const [err,setErr]=useState("");const [busy,setBusy]=useState(false);const [demo,setDemo]=useState(false);const [regOk,setRegOk]=useState("");
+  const [email,setEmail]=useState("");
+  const [pw,setPw]=useState("");
+  const [name,setName]=useState("");
+  const [pw2,setPw2]=useState("");
+  const [role,setRole]=useState("student");
+  const [step,setStep]=useState(1);
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [demo,setDemo]=useState(false);
+  const [regOk,setRegOk]=useState("");
+  const [remember,setRemember]=useState(false);
+
+  useEffect(()=>{
+    const saved=localStorage.getItem("sdb_saved_credentials");
+    if(saved){
+      try{
+        const creds=JSON.parse(saved);
+        setEmail(creds.email||"");
+        setPw(creds.pw||"");
+        setRemember(true);
+      }catch{}
+    }
+  },[]);
 
   const reset=()=>{setEmail("");setPw("");setName("");setPw2("");setErr("");setStep(1);setRegOk("");};
   const switchMode=m=>{setMode(m);reset();};
@@ -546,6 +563,8 @@ function AuthPage({onLogin}){
     const user=users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase());
     if(!key||auth[key].pw!==pw){setErr("Contrasena incorrecta");setBusy(false);return;}
     if(auth[key].mustChange){onLogin(user,true);return;}
+    if(remember){localStorage.setItem("sdb_saved_credentials",JSON.stringify({email:email.trim(),pw}));}
+    else{localStorage.removeItem("sdb_saved_credentials");}
     onLogin(user,false);
   };
 
@@ -620,6 +639,10 @@ function AuthPage({onLogin}){
                     <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:T.bg,border:"1px solid "+T.rule,marginBottom:14,borderRadius:2}}><Av t={email[0]||"?"} sz={22}/><span style={{fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{email}</span><Btn v="link" sz="sm" onClick={()=>{setStep(1);setPw("");setErr("");}}>Cambiar</Btn></div>
                     <Lbl c="Contrasena" s={{marginBottom:5}}/>
                     <Inp type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&loginDo()} placeholder="..." s={{marginBottom:err?8:16}} autoFocus/>
+                    <div style={{display:"flex",alignItems:"center",gap:6,margin:"6px 0 12px",fontSize:11}}>
+                      <input id="save-access" type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{cursor:"pointer"}}/>
+                      <label htmlFor="save-access" style={{cursor:"pointer"}}>Guardar acceso en este equipo</label>
+                    </div>
                     {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
                     <Btn v="primary" sz="lg" onClick={loginDo} dis={busy} s={{width:"100%",justifyContent:"center"}}>{busy?<><Sp/>&nbsp;Verificando...</>:"Iniciar sesion"}</Btn>
                   </>
