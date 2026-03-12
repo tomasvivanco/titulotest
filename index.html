@@ -431,10 +431,16 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
   const [viewing,setViewing]=useState(null);
   const [uploading,setUploading]=useState(false);
   const [progress,setProgress]=useState(0);
-  const handle=async(e)=>{
-    const file=e.target.files[0];if(!file)return;
-    if(file.size>5*1024*1024){alert("Archivo demasiado grande. Maximo 5MB.");return;}
-    e.target.value="";
+  const [status,setStatus]=useState(null);
+  const [dragActive,setDragActive]=useState(false);
+  const MAX_FILE_SIZE=5*1024*1024;
+  const allowedPattern=/\\.(pdf|docx?|pptx?|xlsx?|jpg|jpeg|png|gif|txt)$/i;
+  useEffect(()=>{if(!status)return;const timer=setTimeout(()=>setStatus(null),3800);return()=>clearTimeout(timer);},[status]);
+  const showStatus=(msg,type="info")=>setStatus({msg,type});
+  const handleFile=async(file)=>{
+    if(!file)return;
+    if(file.size>MAX_FILE_SIZE){showStatus("Archivo demasiado grande. Maximo 5MB.","error");return;}
+    if(!allowedPattern.test(file.name)){showStatus("Formato no soportado.","error");return;}
     setUploading(true);setProgress(10);
     try{
       const reader=new FileReader();
@@ -447,9 +453,14 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
         reader.onerror=rej;
         reader.readAsDataURL(file);
       });
-    }catch(err){alert("Error al cargar el archivo: "+err.message);}
+      showStatus("Archivo cargado correctamente.","success");
+    }catch(err){showStatus("Error al cargar: "+err.message,"error");}
     setUploading(false);setProgress(0);
   };
+  const handle=async(e)=>{const file=e.target.files[0];if(!file)return;handleFile(file);e.target.value="";};
+  const handleDrop=e=>{e.preventDefault();setDragActive(false);if(e.dataTransfer?.files?.length)handleFile(e.dataTransfer.files[0]);};
+  const handleDragOver=e=>{e.preventDefault();setDragActive(true);};
+  const handleDragLeave=e=>{e.preventDefault();setDragActive(false);};
   const getFileType=(f)=>{
     if((f.type&&f.type.startsWith("image/"))||/\.(jpg|jpeg|png|gif)$/i.test(f.name||""))return"IMG";
     if((f.type==="application/pdf")||/\.pdf$/i.test(f.name||""))return"PDF";
@@ -483,9 +494,31 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
       </div>
       {canEdit&&!uploading&&(
         <>
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            style={{
+              border:"1px dashed "+(dragActive?T.accent:T.rule),
+              borderRadius:4,
+              padding:"14px 16px",
+              display:"flex",
+              flexDirection:"column",
+              gap:4,
+              alignItems:"center",
+              marginBottom:10,
+              cursor:"pointer",
+              background:dragActive?"rgba(217,78,26,0.08)":"transparent"
+            }}
+            onClick={()=>inp.current&&inp.current.click()}
+          >
+            <div style={{fontSize:12,fontWeight:600,color:T.ink}}>Arrastra archivos aquí o haz clic para seleccionar</div>
+            <div style={{fontSize:10,color:T.ink3}}>Soportado: PDF/Word/PowerPoint/Imagen/TXT. Máx 5MB.</div>
+          </div>
           <input type="file" ref={inp} onChange={handle} style={{display:"none"}} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.ppt,.pptx,.xls,.xlsx"/>
-          <Btn v="ghost" sz="sm" onClick={()=>inp.current&&inp.current.click()}>+ Adjuntar archivo (max 10MB)</Btn>
-          <div style={{fontSize:10,color:T.ink3,marginTop:4}}>PDF, Word, imagenes. Max 5MB. Archivos guardados localmente.</div>
+          <Btn v="ghost" sz="sm" onClick={()=>inp.current&&inp.current.click()}>Seleccionar archivo</Btn>
+          <div style={{fontSize:10,color:T.ink3,marginTop:4}}>Los archivos se mantienen en tu navegador y pueden verse o descargarse desde aquí.</div>
+          {status&&<div style={{marginTop:6,fontSize:11,padding:"6px 10px",borderRadius:3,background:status.type==="error"?T.redBg:status.type==="success"?T.greenBg:T.bg,color:status.type==="error"?T.red:status.type==="success"?T.green:T.ink,fontWeight:500}}>{status.msg}</div>}
         </>
       )}
       <FileViewer file={viewing} onClose={()=>setViewing(null)}/>
@@ -494,23 +527,21 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
 }
 function AuthPage({onLogin}){
   const [mode,setMode]=useState("login");
-  const [email,setEmail]=useState("");const [pw,setPw]=useState("");const [name,setName]=useState("");const [pw2,setPw2]=useState("");const [role,setRole]=useState("student");const [step,setStep]=useState(1);const [err,setErr]=useState("");const [busy,setBusy]=useState(false);const [demo,setDemo]=useState(false);const [regOk,setRegOk]=useState("");
+  const [email,setEmail]=useState("");const [pw,setPw]=useState("");const [name,setName]=useState("");const [pw2,setPw2]=useState("");const [role,setRole]=useState("student");const [err,setErr]=useState("");const [busy,setBusy]=useState(false);const [demo,setDemo]=useState(false);const [regOk,setRegOk]=useState("");const [forgotMsg,setForgotMsg]=useState("");
 
-  const reset=()=>{setEmail("");setPw("");setName("");setPw2("");setErr("");setStep(1);setRegOk("");};
+  const reset=()=>{setEmail("");setPw("");setName("");setPw2("");setErr("");setRegOk("");setForgotMsg("");};
   const switchMode=m=>{setMode(m);reset();};
 
-  const loginNext=async()=>{
-    if(!email.trim()){setErr("Ingresa tu correo");return;}
-    const users=await DB.getUsers();
-    if(!users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase())){setErr("Correo no registrado. Crea una cuenta primero.");return;}
-    setErr("");setStep(2);
-  };
   const loginDo=async()=>{
-    if(!pw){setErr("Ingresa tu contrasena");return;}setBusy(true);
+    setErr("");
+    if(!email.trim()){setErr("Ingresa tu correo");return;}
+    if(!pw){setErr("Ingresa tu contraseña");return;}
+    setBusy(true);
     const[auth,users]=await Promise.all([DB.getAuth(),DB.getUsers()]);
     const key=Object.keys(auth).find(k=>k.toLowerCase()===email.trim().toLowerCase());
     const user=users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase());
-    if(!key||auth[key].pw!==pw){setErr("Contrasena incorrecta");setBusy(false);return;}
+    if(!key||auth[key].pw!==pw){setErr("Correo o contraseña incorrectos");setBusy(false);return;}
+    setBusy(false);
     if(auth[key].mustChange){onLogin(user,true);return;}
     onLogin(user,false);
   };
@@ -542,6 +573,7 @@ function AuthPage({onLogin}){
   };
 
   const DEMOS=[{label:"PROFESOR DEMO",email:"demo.profesor@seminariodiseno.cl",pw:"Demo2026"},{label:"ESTUDIANTE DEMO",email:"demo.estudiante@seminariodiseno.cl",pw:"Demo2026"}];
+  const handleForgot=()=>{if(!email.trim()){setForgotMsg("Agrega tu correo para recibir el enlace de recuperación.");return;}setForgotMsg(`El enlace de restablecimiento fue enviado a ${email}. (Simulado)`);};
 
   return (
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column"}} className="fu">
@@ -560,7 +592,7 @@ function AuthPage({onLogin}){
                   <div style={{fontSize:9,color:"#6EB4F5",fontWeight:700,letterSpacing:"0.1em",marginBottom:4}}>{d.label}</div>
                   <div style={{fontSize:12,color:"#fff",fontFamily:"monospace"}}>{d.email}</div>
                   <div style={{fontSize:12,color:"#fff",fontFamily:"monospace",marginBottom:8}}>{d.pw}</div>
-                  <Btn v="accent" sz="sm" onClick={()=>{setEmail(d.email);setPw(d.pw);setMode("login");setStep(2);setDemo(false);}}>Ingresar -{">"}</Btn>
+                  <Btn v="accent" sz="sm" onClick={()=>{setEmail(d.email);setPw(d.pw);setMode("login");setDemo(false);}}>Ingresar -{">"}</Btn>
                 </div>
               ))}
             </div>
@@ -570,32 +602,27 @@ function AuthPage({onLogin}){
       <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
         <div style={{width:"100%",maxWidth:420}}>
           <div style={{background:T.surface,border:"1px solid "+T.rule,padding:"28px 22px",marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26}}>{mode==="login"?"Bienvenido/a":"Crear cuenta"}</div>
+              <div style={{fontSize:11,color:T.ink3,textTransform:"uppercase",letterSpacing:"0.06em"}}>Seminario Titulo 2026</div>
+            </div>
             {mode==="login"&&(
               <>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,marginBottom:4}}>{step===1?"Bienvenido/a":"Ingresa tu contrasena"}</div>
-                <div style={{fontSize:12,color:T.ink3,marginBottom:20}}>Seminario Titulo 2026</div>
-                {step===1?(
-                  <>
-                    <Lbl c="Correo electronico" s={{marginBottom:5}}/>
-                    <Inp value={email} onChange={e=>{setEmail(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&loginNext()} placeholder="nombre@universidad.cl" s={{marginBottom:err?8:16}} autoFocus/>
-                    {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
-                    <Btn v="primary" sz="lg" onClick={loginNext} s={{width:"100%",justifyContent:"center",marginBottom:14}}>Continuar</Btn>
-                  </>
-                ):(
-                  <>
-                    <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:T.bg,border:"1px solid "+T.rule,marginBottom:14,borderRadius:2}}><Av t={email[0]||"?"} sz={22}/><span style={{fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{email}</span><Btn v="link" sz="sm" onClick={()=>{setStep(1);setPw("");setErr("");}}>Cambiar</Btn></div>
-                    <Lbl c="Contrasena" s={{marginBottom:5}}/>
-                    <Inp type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&loginDo()} placeholder="..." s={{marginBottom:err?8:16}} autoFocus/>
-                    {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
-                    <Btn v="primary" sz="lg" onClick={loginDo} dis={busy} s={{width:"100%",justifyContent:"center"}}>{busy?<><Sp/>&nbsp;Verificando...</>:"Iniciar sesion"}</Btn>
-                  </>
-                )}
+                <Lbl c="Correo electronico" s={{marginBottom:5}}/>
+                <Inp value={email} onChange={e=>{setEmail(e.target.value);setErr("");setForgotMsg("");}} placeholder="nombre@universidad.cl" s={{marginBottom:12}} autoFocus/>
+                <div style={{fontSize:10,color:T.ink3,marginBottom:12}}>Usa tu correo institucional. Si tu profesor te invitó, ya estás registrado.</div>
+                <Lbl c="Contrasena" s={{marginBottom:5}}/>
+                <Inp type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="Minimo 6 caracteres" s={{marginBottom:err||forgotMsg?8:16}} onKeyDown={e=>e.key==="Enter"&&loginDo()}/>
+                {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
+                {forgotMsg&&<div style={{fontSize:11,color:T.ink3,marginBottom:12,padding:"7px 10px",background:T.bg}}>{forgotMsg}</div>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <button onClick={handleForgot} style={{background:"none",border:"none",color:T.accent,cursor:"pointer",fontSize:11,fontWeight:600,padding:0}}>Olvide mi contraseña</button>
+                  <Btn v="primary" sz="sm" onClick={loginDo} dis={busy}>{busy?<><Sp/>&nbsp;Verificando...</>:"Iniciar sesion"}</Btn>
+                </div>
               </>
             )}
             {mode==="register"&&(
               <>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,marginBottom:4}}>Crear cuenta</div>
-                <div style={{fontSize:12,color:T.ink3,marginBottom:20}}>Registro en Seminario Titulo 2026</div>
                 {regOk?(
                   <div style={{padding:"16px",background:T.greenBg,border:"1px solid "+T.green,textAlign:"center"}}>
                     <div style={{fontSize:14,color:T.green,fontWeight:600,marginBottom:4}}>Cuenta creada</div>
@@ -811,6 +838,14 @@ function StageCard({stage,stageData,onUpdate,isProf,allStudents}){
   const peer=stageData.peer||{assigneeId:null,submitted:false,eval:mkPE(stage)};
   const canEdit=!["EN_REVISION_PARES","CERRADA"].includes(stageData.status);
   const ST=SCFG[stageData.status]||SCFG.BORRADOR;
+  const statusHints={
+    BORRADOR:"Completa una o dos secciones y guarda tu avance.",
+    LISTO_PARA_PROFESOR:"Revisa sugerencias del profesor si ya fueron enviadas.",
+    SOLICITA_PARES:"Prepara evidencias y comparte qué debe evaluar el par.",
+    EN_REVISION_PARES:"Consulta los comentarios del par asignado.",
+    CIERRE_PARES:"Incorpora el feedback antes de cerrar la etapa."
+  };
+  const nextAction=isProf?"Revisa el avance y cierra la etapa cuando esté listo.":statusHints[stageData.status]||"Continúa con el contenido o los archivos.";
 
   const updSec=async(secId,content,pfb)=>{setSv(true);const ns={...sd,[secId]:{content:content!==undefined?content:sd[secId]&&sd[secId].content||"",profFeedback:pfb!==undefined?pfb:sd[secId]&&sd[secId].profFeedback||""}};await onUpdate({...stageData,secs:ns});setSv(false);};
   const updFiles=async(files)=>onUpdate({...stageData,files});
@@ -990,6 +1025,7 @@ function StudentProject({user,stages,onUpdateStages,section,peerAssignments,onPe
           <div style={{fontSize:13,color:T.ink3,marginBottom:16,lineHeight:1.7}}>Tu cuenta no esta asignada a ninguna seccion. Espera a que tu profesor/a te invite y registrate con el correo que te invito.</div>
           <div style={{fontSize:12,color:T.ink2,padding:"12px 16px",background:T.amberBg,border:"1px solid "+T.amber,lineHeight:1.6}}>Si ya te registraste, contacta a tu profesor para que te asigne manualmente.</div>
         </div>
+        <div style={{padding:"4px 15px 10px",background:T.bg,borderTop:"1px solid "+T.rule,fontSize:11,color:T.ink3}}><b style={{fontSize:10,color:T.ink}}>Próximo paso:</b> {nextAction}</div>
       </div>
     );
   }
@@ -1556,10 +1592,17 @@ function Sidebar({user,view,setView,section,sections,onSelectSection,onLogout,op
 const APP_VERSION="beta_1";
 function App(){
   const [ready,setReady]=useState(false);const [user,setUser]=useState(null);const [mustChg,setMustChg]=useState(false);const [view,setView]=useState("home");const [sbOpen,setSbOpen]=useState(false);const [allUsers,setAllUsers]=useState([]);const [sections,setSections]=useState([]);const [curSec,setCurSec]=useState(null);const [stuData,setStuData]=useState({});const [ganttData,setGanttData]=useState({});const [resData,setResData]=useState({});const [peerAssigns,setPeerAssigns]=useState([]);
+  const [bannerVisible,setBannerVisible]=useState(true);
 
   useEffect(()=>{(async()=>{try{await DB.init();const[u,secs]=await Promise.all([DB.getUsers(),DB.getSections()]);setAllUsers(u||[]);setSections(secs||[]);}catch(e){setAllUsers([]);setSections([]);}setReady(true);})();},[]);
 
   useEffect(()=>{if(!user)return;(async()=>{const stus=allUsers.filter(u=>u.role==="student");const d={};for(const s of stus){d[s.id]={stages:await DB.getStages(s.id)||mkStages()};}setStuData(d);const sids=[...new Set(allUsers.filter(u=>u.role==="student"&&u.sectionId).map(u=>u.sectionId))];const g={},r={};for(const sid of sids){g[sid]=await DB.getGantt(sid);r[sid]=await DB.getRes(sid);}setGanttData(g);setResData(r);})();},[user,allUsers]);
+  useEffect(()=>{
+    const onScroll=()=>setBannerVisible(window.scrollY<40);
+    onScroll();
+    window.addEventListener("scroll",onScroll,{passive:true});
+    return()=>window.removeEventListener("scroll",onScroll);
+  },[]);
 
   const handleLogin=async(u,must)=>{
     const[freshUsers,freshSecs]=await Promise.all([DB.getUsers(),DB.getSections()]);
@@ -1606,9 +1649,12 @@ function App(){
   if(mustChg)return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}} className="fu"><GS/><div style={{width:"100%",maxWidth:380,background:T.surface,border:"1px solid "+T.rule}}><ChangePw user={user} forced onDone={()=>setMustChg(false)}/></div></div>;
 
   return (
-    <div style={{position:"relative",display:"flex",height:"100vh",overflow:"hidden"}}>
-      <div style={{position:"fixed",top:0,left:0,right:0,borderBottom:"1px solid rgba(255,255,255,0.4)",background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:11,textTransform:"uppercase",letterSpacing:"0.15em",padding:"4px 12px",textAlign:"center",zIndex:300}}>Version Beta_1</div>
-      <GS/>
+    <div style={{position:"relative"}}>
+      {bannerVisible&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,borderBottom:"1px solid rgba(255,255,255,0.4)",background:"rgba(0,0,0,0.75)",color:"#fff",fontSize:11,textTransform:"uppercase",letterSpacing:"0.15em",padding:"4px 12px",textAlign:"center",zIndex:400}}>{`Version ${APP_VERSION}`}</div>
+      )}
+      <div style={{display:"flex",height:"100vh",overflow:"hidden",paddingTop:bannerVisible?28:0}}>
+        <GS/>
       <Sidebar user={user} view={view} setView={setView} section={curSec} sections={sections} onSelectSection={selSec} onLogout={handleLogout} open={sbOpen} onClose={()=>setSbOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",minWidth:0}}>
         <div style={{height:48,background:T.surface,borderBottom:"1px solid "+T.rule,display:"flex",alignItems:"center",padding:"0 12px",gap:10,flexShrink:0,zIndex:10}}>
