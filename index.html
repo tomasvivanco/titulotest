@@ -434,7 +434,7 @@ function FileUpload({files,onAdd,onRemove,canEdit=true,folder="uploads"}){
   const [status,setStatus]=useState(null);
   const [dragActive,setDragActive]=useState(false);
   const MAX_FILE_SIZE=5*1024*1024;
-  const allowedPattern=/\\.(pdf|docx?|pptx?|xlsx?|jpg|jpeg|png|gif|txt)$/i;
+  const allowedPattern=/\.(pdf|docx?|pptx?|xlsx?|jpg|jpeg|png|gif|txt)$/i;
   useEffect(()=>{if(!status)return;const timer=setTimeout(()=>setStatus(null),3800);return()=>clearTimeout(timer);},[status]);
   const showStatus=(msg,type="info")=>setStatus({msg,type});
   const handleFile=async(file)=>{
