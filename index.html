@@ -27,7 +27,7 @@ const { useState, useEffect, useRef } = React;
 
 const T={bg:"#F4F2ED",surface:"#FFF",ink:"#13120F",ink2:"#524C43",ink3:"#9E9488",rule:"#DDD8CE",accent:"#D94E1A",green:"#157A42",greenBg:"#E4F5EC",amber:"#C07800",amberBg:"#FFF3D0",blue:"#1762B5",blueBg:"#E0EAFC",violet:"#7035C4",violetBg:"#EDE5F9",red:"#D12626",redBg:"#FDEAEA",sidebar:"#13120F",sidebarT:"#F4F2ED",sidebarM:"#5E584F"};
 const MEM=new Map();
-const LAUNCH_CFG={showDemoAccounts:false,enableAiAssistant:false,maxUploadBytes:5*1024*1024};
+const LAUNCH_CFG={showDemoAccounts:true,enableAiAssistant:false,maxUploadBytes:5*1024*1024};
 // Storage: IndexedDB (primary) + localStorage (fallback)  -  no external CDN needed
 const IDB=(()=>{
   let db=null;
