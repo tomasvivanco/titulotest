@@ -609,10 +609,10 @@ function AuthPage({onLogin}){
             {mode==="login"&&(
               <>
                 <Lbl c="Correo electronico" s={{marginBottom:5}}/>
-                <Inp value={email} onChange={e=>{setEmail(e.target.value);setErr("");setForgotMsg("");}} placeholder="nombre@universidad.cl" s={{marginBottom:12}} autoFocus/>
+                <Inp id="login-email" name="login-email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");setForgotMsg("");}} placeholder="nombre@universidad.cl" s={{marginBottom:12}} autoFocus/>
                 <div style={{fontSize:10,color:T.ink3,marginBottom:12}}>Usa tu correo institucional. Si tu profesor te invitó, ya estás registrado.</div>
                 <Lbl c="Contrasena" s={{marginBottom:5}}/>
-                <Inp type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="Minimo 6 caracteres" s={{marginBottom:err||forgotMsg?8:16}} onKeyDown={e=>e.key==="Enter"&&loginDo()}/>
+                <Inp id="login-password" name="login-password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="Minimo 6 caracteres" s={{marginBottom:err||forgotMsg?8:16}} onKeyDown={e=>e.key==="Enter"&&loginDo()}/>
                 {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
                 {forgotMsg&&<div style={{fontSize:11,color:T.ink3,marginBottom:12,padding:"7px 10px",background:T.bg}}>{forgotMsg}</div>}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -632,9 +632,9 @@ function AuthPage({onLogin}){
                 ):(
                   <>
                     <Lbl c="Nombre completo" s={{marginBottom:5}}/>
-                    <Inp value={name} onChange={e=>{setName(e.target.value);setErr("");}} placeholder="Nombre Apellido" s={{marginBottom:12}} autoFocus/>
+                    <Inp id="register-name" name="register-name" value={name} onChange={e=>{setName(e.target.value);setErr("");}} placeholder="Nombre Apellido" s={{marginBottom:12}} autoFocus/>
                     <Lbl c="Correo electronico" s={{marginBottom:5}}/>
-                    <Inp value={email} onChange={e=>{setEmail(e.target.value);setErr("");}} placeholder="nombre@universidad.cl" s={{marginBottom:12}}/>
+                    <Inp id="register-email" name="register-email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}} placeholder="nombre@universidad.cl" s={{marginBottom:12}}/>
                     <Lbl c="Soy" s={{marginBottom:5}}/>
                     <div style={{display:"flex",gap:8,marginBottom:12}}>
                       {[["student","Estudiante"],["professor","Profesor/a"]].map(([k,l])=>(
@@ -643,9 +643,9 @@ function AuthPage({onLogin}){
                     </div>
                     {role==="student"&&<div style={{fontSize:11,color:T.ink3,padding:"8px 10px",background:T.bg,border:"1px solid "+T.rule,marginBottom:12}}>Si tu profesor registro tu correo, quedas asignado/a automaticamente a su seccion.</div>}
                     <Lbl c="Contrasena" s={{marginBottom:5}}/>
-                    <Inp type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="Minimo 6 caracteres" s={{marginBottom:12}}/>
+                    <Inp id="register-password" name="register-password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} placeholder="Minimo 6 caracteres" s={{marginBottom:12}}/>
                     <Lbl c="Confirmar contrasena" s={{marginBottom:5}}/>
-                    <Inp type="password" value={pw2} onChange={e=>{setPw2(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&registerDo()} placeholder="Repite la contrasena" s={{marginBottom:err?8:16}}/>
+                    <Inp id="register-password-confirm" name="register-password-confirm" type="password" value={pw2} onChange={e=>{setPw2(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&registerDo()} placeholder="Repite la contrasena" s={{marginBottom:err?8:16}}/>
                     {err&&<div style={{fontSize:11,color:T.red,marginBottom:12,padding:"7px 10px",background:T.redBg}}>{err}</div>}
                     <Btn v="primary" sz="lg" onClick={registerDo} dis={busy} s={{width:"100%",justifyContent:"center",marginBottom:14}}>{busy?<><Sp/>&nbsp;Creando cuenta...</>:"Crear cuenta"}</Btn>
                   </>
